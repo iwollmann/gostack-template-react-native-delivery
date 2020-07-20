@@ -73,38 +73,69 @@ const FoodDetails: React.FC = () => {
 
   useEffect(() => {
     async function loadFood(): Promise<void> {
-      // Load a specific food with extras based on routeParams id
+      const { data } = await api.get<Food>(`/foods/${routeParams.id}`);
+      data.formattedPrice = formatValue(data.price);
+      setFood(data);
+      setExtras(data.extras.map(x => ({ ...x, quantity: 0 })));
     }
 
     loadFood();
   }, [routeParams]);
 
-  function handleIncrementExtra(id: number): void {
-    // Increment extra quantity
-  }
+  const handleIncrementExtra = useCallback(
+    (id: number): void => {
+      const extraIndex = extras.findIndex(x => x.id === id);
+      extras[extraIndex].quantity += 1;
+      setExtras(extras.slice(0));
+    },
+    [extras],
+  );
 
   function handleDecrementExtra(id: number): void {
-    // Decrement extra quantity
+    const extraIndex = extras.findIndex(x => x.id === id);
+    if (extras[extraIndex].quantity === 0) return;
+
+    extras[extraIndex].quantity -= 1;
+    setExtras(extras.slice(0));
   }
 
   function handleIncrementFood(): void {
-    // Increment food quantity
+    setFoodQuantity(state => state + 1);
   }
 
   function handleDecrementFood(): void {
-    // Decrement food quantity
+    if (foodQuantity === 1) return;
+
+    setFoodQuantity(state => state - 1);
   }
 
   const toggleFavorite = useCallback(() => {
-    // Toggle if food is favorite or not
+    if (!isFavorite) {
+      api.post('favorites', food).then(() => {
+        setIsFavorite(state => !state);
+      });
+    } else {
+      api.delete(`favorites/${food.id}`).then(() => {
+        setIsFavorite(state => !state);
+      });
+    }
   }, [isFavorite, food]);
 
   const cartTotal = useMemo(() => {
-    // Calculate cartTotal
+    const totalExtras = extras
+      .map(x => x.value * x.quantity)
+      .reduce((x, y) => x + y, 0);
+
+    return formatValue((food.price + totalExtras) * foodQuantity);
   }, [extras, food, foodQuantity]);
 
   async function handleFinishOrder(): Promise<void> {
-    // Finish the order and save on the API
+    const order = food;
+    delete order.formattedPrice;
+
+    await api.post('orders', order);
+
+    navigation.goBack();
   }
 
   // Calculate the correct icon name
